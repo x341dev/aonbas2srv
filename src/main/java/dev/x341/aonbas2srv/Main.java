@@ -21,6 +21,9 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
 public class Main {
 
     public static void main(String[] args) throws Exception {
+        AOBLogger.log(AOBConstants.NAME + ". By: " + AOBConstants.CREATOR + ". Version: " + AOBConstants.getFullVersion());
+
+
         Injector injector = Guice.createInjector(new ServerModule());
         AOBLogger.log("Guice Injector initialized");
 

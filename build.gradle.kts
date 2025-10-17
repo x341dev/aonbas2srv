@@ -5,6 +5,27 @@ plugins {
 group = "dev.x341.aonbas2srv"
 version = "1.0-SNAPSHOT"
 
+tasks.jar {
+    val constantsFile = file("src/main/java/dev/x341/aonbas2srv/util/AOBConstants.java")
+    val constantsText = if (constantsFile.exists()) constantsFile.readText() else ""
+
+    val name = Regex("""public\s+static\s+final\s+String\s+NAME\s*=\s*"([^"]+)"""")
+        .find(constantsText)?.groupValues?.get(1) ?: project.name
+
+    val major = Regex("""public\s+static\s+final\s+int\s+VERSION_MAJOR\s*=\s*(\d+)""")
+        .find(constantsText)?.groupValues?.get(1) ?: "0"
+    val minor = Regex("""public\s+static\s+final\s+int\s+VERSION_MINOR\s*=\s*(\d+)""")
+        .find(constantsText)?.groupValues?.get(1) ?: "0"
+    val build = Regex("""public\s+static\s+final\s+int\s+VERSION_BUILD\s*=\s*(\d+)""")
+        .find(constantsText)?.groupValues?.get(1) ?: "0"
+
+    val fullVersion = "$major.$minor.$build"
+
+    archiveBaseName.set(name)
+    archiveVersion.set(fullVersion)
+}
+
+
 repositories {
     mavenCentral()
 }
