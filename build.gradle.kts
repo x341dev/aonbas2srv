@@ -1,0 +1,43 @@
+plugins {
+    id("java")
+}
+
+group = "dev.x341.aonbas2srv"
+version = "1.0-SNAPSHOT"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    implementation("io.netty:netty-all:4.2.7.Final")
+    implementation("com.google.inject:guice:7.0.0")
+    implementation("com.squareup.okhttp3:okhttp:5.2.1")
+    implementation("org.slf4j:slf4j-api:1.7.25")
+
+    runtimeOnly("ch.qos.logback:logback-classic:1.5.13")
+
+    implementation("com.google.code.gson:gson:2.13.2")
+    implementation("io.github.cdimascio:dotenv-java:3.2.0")
+
+    implementation("io.swagger.core.v3:swagger-annotations:2.2.20")
+    implementation("io.swagger.core.v3:swagger-models:2.2.20")
+    implementation("io.swagger.core.v3:swagger-jaxrs2:2.2.20")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+
+tasks.register<JavaExec>("runServer") {
+    group = "other"
+    description = "Run the server"
+
+    mainClass.set("dev.x341.aonbas2srv.Main")
+    classpath = sourceSets["main"].runtimeClasspath
+}

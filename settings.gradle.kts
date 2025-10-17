@@ -1,0 +1,1 @@
+rootProject.name = "aonbas2-srv"
