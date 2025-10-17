@@ -1,0 +1,65 @@
+name: Build and Create Release
+
+on:
+  push:
+    branches:
+      - main 
+
+env:
+  JAVA_VERSION: '21'
+  GRADLE_WRAPPER_VERSION: '9.0'
+  ARTIFACT_NAME: 'AONBAS2SRV'
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build with Gradle
+        run: |
+          # Obtenemos la versión de Gradle para pasársela al script (si no está ya en AppConstants)
+          FULL_VERSION=$(./gradlew properties | awk '/^version:/ {print $2}')
+          echo "PROJECT_VERSION=$FULL_VERSION" >> $GITHUB_ENV
+          
+          # La tarea 'jar' crea el archivo en build/libs/
+          ./gradlew clean jar
+
+      - name: Get Full JAR Filename
+        id: get_filename
+        shell: bash
+        run: |
+          # Lee el nombre completo del archivo JAR generado por Gradle
+          JAR_FILE_PATH=$(find build/libs/ -name "${{ env.ARTIFACT_NAME }}-*.jar" | head -n 1)
+          JAR_FILENAME=$(basename "$JAR_FILE_PATH")
+          echo "JAR_FILE_PATH=$JAR_FILE_PATH" >> $GITHUB_ENV
+          echo "JAR_FILENAME=$JAR_FILENAME" >> $GITHUB_OUTPUT
+          echo "Generated JAR path: $JAR_FILE_PATH"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.PROJECT_VERSION }}
+          name: Release v${{ env.PROJECT_VERSION }}
+          body: |
+            Automated release from commit: ${{ github.sha }}
+
+            **Application:** ${{ env.ARTIFACT_NAME }}
+            **Version:** ${{ env.PROJECT_VERSION }}
+          files: ${{ env.JAR_FILE_PATH }} # Ruta del archivo a adjuntar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Token automático proporcionado por GitHub
