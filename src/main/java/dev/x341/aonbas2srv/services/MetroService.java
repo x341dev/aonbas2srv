@@ -33,7 +33,7 @@ public class MetroService {
 
     /**
      * Retrieve stations for a given line code.
-     * @param lineCode line identifier (e.g. "L1")
+     * @param lineCode line identifier (e.g. "1" equals L1)
      * @return JSON string with stations or an error JSON when the API call fails
      */
     public String getStationForLine(String lineCode) {
@@ -55,6 +55,15 @@ public class MetroService {
             return tmbApiClient.getTrainsForStation(stationCode);
         } catch (IOException e) {
             AOBLogger.error("Error getting trains for station " + stationCode, e);
+            return formatError("API_ERROR", e);
+        }
+    }
+
+    public String getInterchanges(String lineCode, String stationCode) {
+        try {
+            return  tmbApiClient.getInterchanges(lineCode, stationCode);
+        } catch (IOException e) {
+            AOBLogger.error("Error getting interchanges for station " + stationCode, e);
             return formatError("API_ERROR", e);
         }
     }
