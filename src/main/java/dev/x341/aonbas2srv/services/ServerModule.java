@@ -12,6 +12,8 @@ public class ServerModule extends AbstractModule {
 
         bind(TmbApiClient.class).in(Singleton.class);
 
+        bind(CacheService.class).in(Singleton.class);
+
         bind(MetroService.class).in(Singleton.class);
 
         bind(HttpServerHandler.class);

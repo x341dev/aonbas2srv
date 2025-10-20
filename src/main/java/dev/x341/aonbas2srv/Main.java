@@ -15,8 +15,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpRequestDecoder;
-import io.netty.handler.codec.http.HttpResponseEncoder;
+import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.util.concurrent.DefaultThreadFactory;
 
 public class Main {
 
@@ -27,8 +27,11 @@ public class Main {
         Injector injector = Guice.createInjector(new ServerModule());
         AOBLogger.log("Guice Injector initialized");
 
-        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
+        int bossThreads = 1;
+        int workerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() * 2);
+
+        EventLoopGroup bossGroup = new NioEventLoopGroup(bossThreads, new DefaultThreadFactory("aon-boss"));
+        EventLoopGroup workerGroup = new NioEventLoopGroup(workerThreads, new DefaultThreadFactory("aon-worker"));
 
         try {
             ServerBootstrap b = new ServerBootstrap();
@@ -37,9 +40,8 @@ public class Main {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) {
-                            ch.pipeline().addLast(new HttpRequestDecoder());
+                            ch.pipeline().addLast(new HttpServerCodec());
                             ch.pipeline().addLast(new HttpObjectAggregator(65536));
-                            ch.pipeline().addLast(new HttpResponseEncoder());
 
                             ch.pipeline().addLast(injector.getInstance(HttpServerHandler.class));
                         }

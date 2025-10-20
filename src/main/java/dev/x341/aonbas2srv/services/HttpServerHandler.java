@@ -36,16 +36,34 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
                 content = metroService.getLines();
                 status = HttpResponseStatus.OK;
                 contentType = "application/json";
-            } else if (segments.length == 3 && segments[0].equals("metro")
-                    && segments[1].equals("line"))
-            {
-                String lineCode = segments[2];
+            } else if (segments[0].equals("metro")) {
+                if (segments[1].equals("line") && segments.length == 3) {
+                    String lineCode = segments[2];
 
-                AOBLogger.log("Route /metro/line/{lineCode} detected: L=" + lineCode);
+                    AOBLogger.debug("Route /metro/line/{lineCode} detected: L=" + lineCode);
 
-                content = metroService.getStationForLine(lineCode);
-                status = HttpResponseStatus.OK;
-                contentType = "application/json";
+                    content = metroService.getStationForLine(lineCode);
+                    status = HttpResponseStatus.OK;
+                    contentType = "application/json";
+                } else if (segments.length == 5 && segments[1].equals("line") && segments[3].equals("station")) {
+                    String lineCode = segments[2];
+                    String stationCode = segments[4];
+
+                    AOBLogger.debug("Calling station with station line " + lineCode + " and station " + stationCode);
+
+                    content = metroService.getTrainTimes(stationCode);
+                    status = HttpResponseStatus.OK;
+                    contentType = "application/json";
+                } else if (segments.length == 6 && segments[1].equals("line") && segments[3]. equals("station") && segments[5].equals("corresp")) {
+                    String lineCode = segments[2];
+                    String stationCode = segments[4];
+
+                    AOBLogger.debug("Calling corresp with line " + lineCode + " and station " + stationCode);
+
+                    content = metroService.getInterchanges(lineCode, stationCode);
+                    status = HttpResponseStatus.OK;
+                    contentType = "application/json";
+                }
             }
 
 

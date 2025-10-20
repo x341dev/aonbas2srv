@@ -9,7 +9,7 @@ public class AOBConstants {
     //Version
     public static final int VERSION_MAJOR = 0;
     public static final int VERSION_MINOR = 1;
-    public static final int VERSION_BUILD = 0;
+    public static final int VERSION_BUILD = 3;
 
     public static String getFullVersion() {
         return VERSION_MAJOR + "." + VERSION_MINOR + "." + VERSION_BUILD;

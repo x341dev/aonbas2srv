@@ -17,4 +17,6 @@ public class AOBLogger {
     public static void error(String msg) {
         LOGGER.error(msg);
     }
+
+    public static void debug(String msg) { LOGGER.debug(msg); }
 }
