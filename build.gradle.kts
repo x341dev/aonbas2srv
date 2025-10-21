@@ -4,31 +4,32 @@ plugins {
 
 group = "dev.x341.aonbas2srv"
 
-
 val constantsFile = file("src/main/java/dev/x341/aonbas2srv/util/AOBConstants.java")
 val constantsText = if (constantsFile.exists()) constantsFile.readText() else ""
 
-val name = Regex("""public\s+static\s+final\s+String\s+NAME\s*=\s*"([^"]+)"""")
-    .find(constantsText)?.groupValues?.get(1) ?: project.name
+val extractedName = Regex("""NAME\s*=\s*"([^"]+)"""")
+    .find(constantsText)?.groupValues?.get(1) ?: "aonbas2srv"
 
-val major = Regex("""public\s+static\s+final\s+int\s+VERSION_MAJOR\s*=\s*(\d+)""")
-    .find(constantsText)?.groupValues?.get(1) ?: "0"
-val minor = Regex("""public\s+static\s+final\s+int\s+VERSION_MINOR\s*=\s*(\d+)""")
-    .find(constantsText)?.groupValues?.get(1) ?: "0"
-val build = Regex("""public\s+static\s+final\s+int\s+VERSION_BUILD\s*=\s*(\d+)""")
-    .find(constantsText)?.groupValues?.get(1) ?: "0"
-
+val major = Regex("""VERSION_MAJOR\s*=\s*(\d+)""").find(constantsText)?.groupValues?.get(1) ?: "0"
+val minor = Regex("""VERSION_MINOR\s*=\s*(\d+)""").find(constantsText)?.groupValues?.get(1) ?: "0"
+val build = Regex("""VERSION_BUILD\s*=\s*(\d+)""").find(constantsText)?.groupValues?.get(1) ?: "0"
 
 val fullVersion = "$major.$minor.$build"
 
+println(">> Extracted name: $extractedName")
+println(">> Version: $fullVersion")
 
 version = fullVersion
 
-tasks.jar {
-
-    archiveBaseName.set(name)
+tasks.named<Jar>("jar") {
+    archiveBaseName.set(extractedName)
     archiveVersion.set(fullVersion)
+
+    doFirst {
+        println(">> Building jar with name=$extractedName, version=$fullVersion")
+    }
 }
+
 
 
 repositories {
