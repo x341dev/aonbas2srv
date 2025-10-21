@@ -50,17 +50,49 @@ jobs:
           echo "JAR_NAME=$JAR_NAME" >> $GITHUB_OUTPUT
           echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_OUTPUT
           echo "RELEASE_NAME=Release $VERSION" >> $GITHUB_OUTPUT
+      - name: Determine release type
+        id: release_type
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "Previous tag: $PREV_TAG"
+
+          CURRENT_VERSION="${{ steps.get_jar_info.outputs.VERSION_TAG }}"
+          CURRENT_VERSION="${CURRENT_VERSION#v}" # quitar prefijo v
+
+          if [ -z "$PREV_TAG" ]; then
+            RELEASE_TYPE="latest"
+          else
+            PREV_VERSION="${PREV_TAG#v}"
+
+            IFS='.' read -r PREV_MAJOR PREV_MINOR PREV_BUILD <<< "$PREV_VERSION"
+            IFS='.' read -r CUR_MAJOR CUR_MINOR CUR_BUILD <<< "$CURRENT_VERSION"
+
+            echo "Comparing $PREV_VERSION → $CURRENT_VERSION"
+
+            if [ "$CUR_MAJOR" -gt "$PREV_MAJOR" ]; then
+              RELEASE_TYPE="latest"       # Major release
+            elif [ "$CUR_MINOR" -gt "$PREV_MINOR" ]; then
+              RELEASE_TYPE="normal"       # Minor release
+            elif [ "$CUR_BUILD" -gt "$PREV_BUILD" ]; then
+              RELEASE_TYPE="prerelease"   # Patch/build
+            else
+              RELEASE_TYPE="normal"       # fallback
+            fi
+          fi
+
+          echo "RELEASE_TYPE=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+          echo "Detected release type: $RELEASE_TYPE"
 
       - name: Create GitHub Release with Changelog
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_jar_info.outputs.VERSION_TAG }}
           name: ${{ steps.get_jar_info.outputs.RELEASE_NAME }}
-
           generate_release_notes: true
-
           files: ${{ steps.get_jar_info.outputs.JAR_PATH }}
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.release_type.outputs.RELEASE_TYPE == 'prerelease' }}
+          make_latest: ${{ steps.release_type.outputs.RELEASE_TYPE == 'latest' && 'true' || 'false' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
