@@ -25,11 +25,12 @@ It aims to be fast, modular, and easy to integrate with Kotlin Multiplatform cli
 Before running, create a `.env` file in the project root:
 
 ```env
-# Example .env
-PORT=8080
-LOG_LEVEL=INFO
-TMB_API_KEY=your_api_key_here
+TMB_APP_ID=<your-app-id>
+TMB_APP_KEY=<your-app-key>
 `````
+Go to [developer.tmb.cat](https://developer.tmb.cat) and create and application to use the TMB API<br>
+More apis are to come with the development
+
 Environment variables are loaded automatically using dotenv-java.
 You can access them in code via:
 
@@ -79,4 +80,4 @@ Open a Pull Request with a short summary of your update.
 -Steps to reproduce
 -Expected vs actual behavior
 
-Maintained by [x341dev](https://github.com/x341dev)
+Maintained by [Lesslie (x341dev)](https://github.com/x341dev)
