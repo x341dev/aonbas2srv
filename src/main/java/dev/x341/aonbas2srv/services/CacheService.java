@@ -57,13 +57,18 @@ public class CacheService {
     }
 
     /**
-     * Put a key/value pair into the cache. If the cache size exceeds capacity the oldest entry
-     * will be evicted automatically.
+     * Put a key/value pair into the cache. If the value is null the key will be removed.
+     * If the cache size exceeds capacity the oldest entry will be evicted automatically.
      *
      * @param key   the cache key
-     * @param value the value to store
+     * @param value the value to store, or null to remove the key
      */
     public void put(String key, String value) {
+        if (value == null) {
+            apiCache.remove(key);
+            AOBLogger.log("Cache REMOVE for key: " + key);
+            return;
+        }
         apiCache.put(key, value);
         AOBLogger.log("Cache PUT for key: " + key);
     }

@@ -21,12 +21,12 @@ println(">> Version: $fullVersion")
 
 version = fullVersion
 
-tasks.named<Jar>("jar") {
+tasks.withType<Jar> {
     archiveBaseName.set(extractedName)
     archiveVersion.set(fullVersion)
 
     doFirst {
-        println(">> Building jar with name=$extractedName, version=$fullVersion")
+        println(">> Building jar with name=${extractedName}, version=${fullVersion}")
     }
 }
 
@@ -44,7 +44,7 @@ dependencies {
     implementation("io.netty:netty-all:4.2.7.Final")
     implementation("com.google.inject:guice:7.0.0")
     implementation("com.squareup.okhttp3:okhttp:5.2.1")
-    implementation("org.slf4j:slf4j-api:1.7.25")
+    implementation("org.slf4j:slf4j-api:2.0.9")
 
     runtimeOnly("ch.qos.logback:logback-classic:1.5.13")
 
