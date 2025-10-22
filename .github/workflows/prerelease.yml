@@ -1,0 +1,97 @@
+name: Create Prerelease JAR
+
+on:
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: '21'
+  GRADLE_BUILD_TASK: 'jar'
+  CONSTANTS_PATH: 'src/main/java/dev/x341/aonbas2srv/util/AOBConstants.java'
+
+jobs:
+  prerelease:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew ${{ env.GRADLE_BUILD_TASK }} -x test
+
+      - name: Extract version from AOBConstants.java
+        id: version
+        run: |
+          CONST_FILE="${{ env.CONSTANTS_PATH }}"
+          MAJOR=$(grep "VERSION_MAJOR" "$CONST_FILE" | grep -oE '[0-9]+')
+          MINOR=$(grep "VERSION_MINOR" "$CONST_FILE" | grep -oE '[0-9]+')
+          BUILD=$(grep "VERSION_BUILD" "$CONST_FILE" | grep -oE '[0-9]+')
+          FULL_VERSION="$MAJOR.$MINOR.$BUILD"
+          SHORT_VERSION="$MAJOR.$MINOR"
+          VERSION_TAG_FULL="v$FULL_VERSION"
+
+          echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "SHORT_VERSION=$SHORT_VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION_TAG_FULL=$VERSION_TAG_FULL" >> $GITHUB_OUTPUT
+
+      - name: Find previous available tag for same MAJOR.MINOR
+        id: prev_tag
+        run: |
+          MAJOR_MIN=${{ steps.version.outputs.SHORT_VERSION }}
+          FULL_VERSION=${{ steps.version.outputs.FULL_VERSION }}
+
+          # Find tags matching the same MAJOR.MINOR (e.g. v0.1.*), exclude the current full tag
+          TAGS=$(git tag -l "v${MAJOR_MIN}.*" 2>/dev/null || true)
+          # Filter out empty, current tag and sort semantic (sort -V)
+          PREV=$(echo "$TAGS" | grep -v "^$" | grep -v "^v${FULL_VERSION}$" | sort -V | tail -n 1 || true)
+
+          if [ -n "$PREV" ]; then
+            PREV_TAG="$PREV"
+          else
+            # fallback: use the latest tag available in the repository
+            PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          fi
+
+          echo "PREV_TAG=$PREV_TAG" >> $GITHUB_OUTPUT
+
+      - name: Find JAR
+        id: jar
+        run: |
+          JAR_PATH=$(find build/libs/ -name "*.jar" -type f | head -n 1)
+          if [ -z "$JAR_PATH" ]; then
+            echo "No JAR found in build/libs" >&2
+            exit 1
+          fi
+          echo "JAR_PATH=$JAR_PATH" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION_TAG_FULL }}
+          name: Prerelease ${{ steps.version.outputs.VERSION_TAG_FULL }}
+          prerelease: true
+          generate_release_notes: false
+          files: ${{ steps.jar.outputs.JAR_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Output summary
+        run: |
+          echo "Created prerelease: ${{ steps.version.outputs.VERSION_TAG_FULL }}"
+          echo "Previous tag considered: ${{ steps.prev_tag.outputs.PREV_TAG }}"
+          echo "Attached JAR: ${{ steps.jar.outputs.JAR_PATH }}"
+
