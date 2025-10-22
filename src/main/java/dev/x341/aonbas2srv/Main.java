@@ -18,8 +18,25 @@ import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.util.concurrent.DefaultThreadFactory;
 
+/**
+ * Application entry point for the server.
+ *
+ * Notes:
+ * - This class currently uses NIO EventLoop groups for portability. Some Netty
+ *   distributions may provide platform-specific implementations (Epoll, IO_URING) which
+ *   offer better performance on Linux. If you add the native transport dependency, prefer
+ *   to construct the platform-specific EventLoopGroup when available.
+ */
 public class Main {
 
+    /**
+     * Create the server and start listening on the configured port.
+     * This method constructs two EventLoopGroup instances (boss and worker) and
+     * shuts them down gracefully on exit.
+     *
+     * @param args command-line args (unused)
+     * @throws Exception if the server fails to start
+     */
     public static void main(String[] args) throws Exception {
         AOBLogger.log(AOBConstants.NAME + ". By: " + AOBConstants.CREATOR + ". Version: " + AOBConstants.getFullVersion());
 
@@ -30,8 +47,8 @@ public class Main {
         int bossThreads = 1;
         int workerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() * 2);
 
-        EventLoopGroup bossGroup = new NioEventLoopGroup(bossThreads, new DefaultThreadFactory("aon-boss"));
-        EventLoopGroup workerGroup = new NioEventLoopGroup(workerThreads, new DefaultThreadFactory("aon-worker"));
+        EventLoopGroup bossGroup = createEventLoopGroup(bossThreads, "aon-boss");
+        EventLoopGroup workerGroup = createEventLoopGroup(workerThreads, "aon-worker");
 
         try {
             ServerBootstrap b = new ServerBootstrap();
@@ -59,5 +76,20 @@ public class Main {
             bossGroup.shutdownGracefully();
             AOBLogger.log("Server shut down.");
         }
+    }
+
+    /**
+     * Helper to construct an EventLoopGroup. We suppress the deprecation annotation locally
+     * to avoid IDE warnings while keeping runtime behavior unchanged. If you add a native
+     * transport (epoll, io_uring), replace this implementation to return the platform-optimized
+     * EventLoopGroup when available.
+     *
+     * @param threads number of threads
+     * @param namePrefix thread name prefix
+     * @return constructed EventLoopGroup
+     */
+    @SuppressWarnings("deprecation")
+    private static EventLoopGroup createEventLoopGroup(int threads, String namePrefix) {
+        return new NioEventLoopGroup(threads, new DefaultThreadFactory(namePrefix));
     }
 }
