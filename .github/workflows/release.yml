@@ -8,17 +8,19 @@ on:
 env:
   JAVA_VERSION: '21'
   GRADLE_BUILD_TASK: 'jar'
+  CONSTANTS_PATH: 'src/main/java/dev/x341/aonbas2srv/util/AOBConstants.java'
 
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
@@ -31,36 +33,59 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew ${{ env.GRADLE_BUILD_TASK }} -x test 
+        run: ./gradlew ${{ env.GRADLE_BUILD_TASK }} -x test
 
-      - name: Get JAR file name and version
-        id: get_jar_info
+      - name: Extract version from AOBConstants.java
+        id: version
+        run: |
+          CONST_FILE="${{ env.CONSTANTS_PATH }}"
+          MAJOR=$(grep "VERSION_MAJOR" "$CONST_FILE" | grep -oE '[0-9]+')
+          MINOR=$(grep "VERSION_MINOR" "$CONST_FILE" | grep -oE '[0-9]+')
+          BUILD=$(grep "VERSION_BUILD" "$CONST_FILE" | grep -oE '[0-9]+')
+          VERSION="$MAJOR.$MINOR.$BUILD"
+          VERSION_TAG="v$VERSION"
+          
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_OUTPUT
+
+      - name: Determine release type
+        id: release_type
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          CURRENT_VERSION="${{ steps.version.outputs.VERSION }}"
+          
+          if [ -z "$PREV_TAG" ]; then
+            RELEASE_TYPE="major"
+          else
+            PREV_VERSION="${PREV_TAG#v}"
+            IFS='.' read -r PREV_MAJOR PREV_MINOR PREV_PATCH <<< "$PREV_VERSION"
+            IFS='.' read -r CUR_MAJOR CUR_MINOR CUR_PATCH <<< "$CURRENT_VERSION"
+
+            if [ "$CUR_MAJOR" -gt "$PREV_MAJOR" ]; then
+              RELEASE_TYPE="major"
+            elif [ "$CUR_MINOR" -gt "$PREV_MINOR" ]; then
+              RELEASE_TYPE="minor"
+            else
+              RELEASE_TYPE="patch"
+            fi
+          fi
+
+          echo "Detected release type: $RELEASE_TYPE"
+          echo "RELEASE_TYPE=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+
+      - name: Find JAR
+        id: jar
         run: |
           JAR_PATH=$(find build/libs/ -name "*.jar" -type f | head -n 1)
-          
-          JAR_NAME=$(basename $JAR_PATH)
-          
-          # La versión sin el prefijo 'v'
-          VERSION=$(echo $JAR_NAME | sed -E 's/.*-([0-9]+\.[0-9]+\.[0-9]+)\.jar/\1/')
-          
-          # La etiqueta con el prefijo 'v' para el tag de Git
-          VERSION_TAG="v$VERSION"
-
           echo "JAR_PATH=$JAR_PATH" >> $GITHUB_OUTPUT
-          echo "JAR_NAME=$JAR_NAME" >> $GITHUB_OUTPUT
-          echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_OUTPUT
-          echo "RELEASE_NAME=Release $VERSION" >> $GITHUB_OUTPUT
-        
-      - name: Create GitHub Release with Changelog
+
+      - name: Create GitHub Release
+        if: ${{ steps.release_type.outputs.RELEASE_TYPE == 'major' || steps.release_type.outputs.RELEASE_TYPE == 'minor' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.get_jar_info.outputs.VERSION_TAG }} 
-          name: ${{ steps.get_jar_info.outputs.RELEASE_NAME }}
-
+          tag_name: ${{ steps.version.outputs.VERSION_TAG }}
+          name: Release ${{ steps.version.outputs.VERSION_TAG }}
           generate_release_notes: true
-          
-          files: ${{ steps.get_jar_info.outputs.JAR_PATH }}
-          draft: false
-          prerelease: false
+          files: ${{ steps.jar.outputs.JAR_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
