@@ -118,8 +118,27 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
     }
 
     private String handleTramRoutes(String[] seg) throws IOException {
-        if (seg.length == 1) return tramService.getLines();
-        if (seg.length == 3 && "line".equals(seg[1])) return tramService.getStopsForLines(seg[2]);
+        if (seg.length == 1) return tramService.getLinesJson();
+        // /tram/line/{lineId} -> return stops for the line as JSON
+        if (seg.length == 3 && "line".equals(seg[1])) {
+            var stops = tramService.getStopsForLine(seg[2]);
+            return GSON.toJson(stops);
+        }
+        // /tram/line/{lineId}/stop/{gtfsCode} -> return times for the stop
+        if (seg.length == 5 && "line".equals(seg[1]) && "stop".equals(seg[3])) return tramService.getStopTimes(seg[4]);
+        // /tram/codes -> list all known GTFS codes
+        if (seg.length == 2 && "codes".equals(seg[1])) {
+            return GSON.toJson(tramService.listAllGtfsCodes());
+        }
+        // /tram/check-missing/{network} -> list RT stop ids not found in static stops
+        if (seg.length == 3 && "check-missing".equals(seg[1])) {
+            String network = seg[2];
+            return GSON.toJson(tramService.findMissingStaticStopsInGtfsRt(network));
+        }
+        // /tram/raw-stops -> raw cached JSON for all stops (if present)
+        if (seg.length == 2 && "raw-stops".equals(seg[1])) {
+            return tramService.getStopsJsonRaw();
+        }
         return null;
     }
 

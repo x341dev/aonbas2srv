@@ -1,4 +1,4 @@
-package dev.x341.aonbas2srv.otp;
+package dev.x341.aonbas2srv.dto;
 
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;

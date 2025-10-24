@@ -1,7 +1,7 @@
 package dev.x341.aonbas2srv.services;
 
 import com.google.inject.Inject;
-import dev.x341.aonbas2srv.otp.OtpDto;
+import dev.x341.aonbas2srv.dto.OtpDto;
 import dev.x341.aonbas2srv.util.AOBLogger;
 
 import java.util.UUID;
