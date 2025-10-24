@@ -1,6 +1,7 @@
-package dev.x341.aonbas2srv.services;
+package dev.x341.aonbas2srv.services.apiclients;
 
 import com.google.inject.Inject;
+import dev.x341.aonbas2srv.services.CacheService;
 import dev.x341.aonbas2srv.util.AOBConfig;
 import dev.x341.aonbas2srv.util.AOBLogger;
 import okhttp3.OkHttpClient;
@@ -23,7 +24,7 @@ public class TmbApiClient {
     @Inject
     public TmbApiClient(AOBConfig config, CacheService cacheService) {
         this.client = new OkHttpClient();
-        this.authParams = String.format("app_id=%s&app_key=%s", config.getAppId(), config.getAppKey());
+        this.authParams = String.format("app_id=%s&app_key=%s", config.getTmbAppId(), config.getTmbAppKey());
         this.cacheService = cacheService;
     }
 

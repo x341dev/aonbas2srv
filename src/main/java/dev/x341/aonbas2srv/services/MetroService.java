@@ -1,6 +1,7 @@
 package dev.x341.aonbas2srv.services;
 
 import com.google.inject.Inject;
+import dev.x341.aonbas2srv.services.apiclients.TmbApiClient;
 import dev.x341.aonbas2srv.util.AOBLogger;
 
 import java.io.IOException;
@@ -9,7 +10,7 @@ import java.io.IOException;
  * MetroService provides a thin application-level facade over the TMB API client.
  * It catches IOExceptions from the API client, logs them, and returns a small JSON
  * error payload so callers (HTTP handlers) can return consistent error responses.
- *
+ * <p>
  * This implementation also uses CacheService to reduce repeated API calls for the
  * same resources. On API failure the service will attempt to return a cached value
  * when available.
