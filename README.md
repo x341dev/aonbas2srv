@@ -27,9 +27,14 @@ Before running, create a `.env` file in the project root:
 ```env
 TMB_APP_ID=<your-app-id>
 TMB_APP_KEY=<your-app-key>
+
+TRAM_CLIENT_ID=<your-client-id>
+TRAM_CLIENT_SECRET=<your-client-secret>
 `````
-Go to [developer.tmb.cat](https://developer.tmb.cat) and create and application to use the TMB API<br>
+For TMB: Go to [developer.tmb.cat](https://developer.tmb.cat) and create and application to use the TMB API<br>
+For TRAM: Go to [opendata.tram.cat](https://opendata.tram.cat) and sign up from there <br>
 More apis are to come with the development
+
 
 Environment variables are loaded automatically using dotenv-java.
 You can access them in code via:
