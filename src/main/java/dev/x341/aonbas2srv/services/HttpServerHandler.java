@@ -2,6 +2,7 @@ package dev.x341.aonbas2srv.services;
 
 import com.google.gson.Gson;
 import com.google.inject.Inject;
+import dev.x341.aonbas2srv.dto.MetroDto;
 import dev.x341.aonbas2srv.util.AOBLogger;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -10,22 +11,16 @@ import io.netty.handler.codec.http.*;
 import io.netty.util.CharsetUtil;
 
 import java.io.IOException;
-import java.util.Arrays;
 
-/**
- * Refactored HTTP server handler with clean dispatching and centralized response logic.
- */
 public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
 
     private final MetroService metroService;
-    private final OtpService otpService;
     private final TramService tramService;
     private static final Gson GSON = new Gson();
 
     @Inject
-    public HttpServerHandler(MetroService metroService, OtpService otpService, TramService tramService) {
+    public HttpServerHandler(MetroService metroService, TramService tramService) {
         this.metroService = metroService;
-        this.otpService = otpService;
         this.tramService = tramService;
     }
 
@@ -37,7 +32,7 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
         String path = uri.split("\\?")[0];
         String[] segments = path.substring(1).split("/");
 
-        // Default response
+        boolean isApp = "app".equals(req.headers().get("X-Client-Type")); // <-- detect app
         String content = "Not Found";
         HttpResponseStatus status = HttpResponseStatus.NOT_FOUND;
         String contentType = "text/plain";
@@ -48,22 +43,21 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
                 status = HttpResponseStatus.OK;
 
             } else if (path.equals("/metro/lines") && req.method().equals(HttpMethod.GET)) {
-                content = metroService.getLines();
+                if (isApp) {
+                    MetroDto dto = metroService.getLinesDto();
+                    content = dto != null ? GSON.toJson(dto) : "{}"; // app recibe DTO
+                } else {
+                    content = metroService.getLinesJson(); // GET HTTP recibe JSON
+                }
                 status = HttpResponseStatus.OK;
                 contentType = "application/json";
 
             } else if (segments.length > 1 && "metro".equals(segments[0])) {
-                content = handleMetroRoutes(req, segments);
+                content = handleMetroRoutes(req, segments, isApp);
                 if (content != null) {
                     status = HttpResponseStatus.OK;
                     contentType = "application/json";
                 }
-
-            } else if (segments.length > 0 && "otp".equals(segments[0])) {
-                HttpResult otpResult = handleOtpRoutes(req, segments);
-                content = otpResult.content();
-                status = otpResult.status();
-                contentType = "application/json";
 
             } else if (segments.length > 0 && "tram".equals(segments[0])) {
                 content = handleTramRoutes(segments);
@@ -82,63 +76,25 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
         sendResponse(ctx, req, content, status, contentType);
     }
 
-    private String handleMetroRoutes(FullHttpRequest req, String[] seg) {
+    private String handleMetroRoutes(FullHttpRequest req, String[] seg, boolean isApp) throws IOException {
         if (seg.length == 3 && "line".equals(seg[1])) {
-            return metroService.getStationForLine(seg[2]);
+            return isApp ? GSON.toJson(metroService.getStationForLineDto(seg[2]))
+                    : metroService.getStationForLine(seg[2]);
         } else if (seg.length == 5 && "line".equals(seg[1]) && "station".equals(seg[3])) {
-            return metroService.getTrainTimes(seg[4]);
+            return metroService.getTrainTimes(seg[4]); // Train times igual para app o HTTP
         } else if (seg.length == 6 && "line".equals(seg[1]) && "station".equals(seg[3]) && "corresp".equals(seg[5])) {
             return metroService.getInterchanges(seg[2], seg[4]);
         }
         return null;
     }
 
-    private HttpResult handleOtpRoutes(FullHttpRequest req, String[] seg) {
-        if (req.method().equals(HttpMethod.POST) && seg.length == 1) {
-            String body = req.content().toString(CharsetUtil.UTF_8);
-            try {
-                OtpCreateRequest r = GSON.fromJson(body, OtpCreateRequest.class);
-                if (r == null || r.type == null || r.payload == null) {
-                    return new HttpResult(HttpResponseStatus.BAD_REQUEST, "{\"error\":\"INVALID_REQUEST\",\"message\":\"type and payload required\"}");
-                }
-                var dto = otpService.createOtp(r.type, r.payload);
-                return new HttpResult(HttpResponseStatus.CREATED, dto.toJson());
-            } catch (Exception e) {
-                AOBLogger.error("Error creating OTP", e);
-                return new HttpResult(HttpResponseStatus.INTERNAL_SERVER_ERROR, "{\"error\":\"SERVER_ERROR\",\"message\":\"Failed to create OTP\"}");
-            }
-        } else if (req.method().equals(HttpMethod.GET) && seg.length == 2) {
-            var dto = otpService.getOtp(seg[1]);
-            if (dto == null) {
-                return new HttpResult(HttpResponseStatus.NOT_FOUND, "{\"error\":\"NOT_FOUND\",\"message\":\"OTP not found\"}");
-            }
-            return new HttpResult(HttpResponseStatus.OK, dto.toJson());
-        }
-        return new HttpResult(HttpResponseStatus.NOT_FOUND, "{\"error\":\"NOT_FOUND\",\"message\":\"Endpoint not found\"}");
-    }
-
     private String handleTramRoutes(String[] seg) throws IOException {
         if (seg.length == 1) return tramService.getLinesJson();
-        // /tram/line/{lineId} -> return stops for the line as JSON
-        if (seg.length == 3 && "line".equals(seg[1])) {
-            var stops = tramService.getStopsForLine(seg[2]);
-            return GSON.toJson(stops);
-        }
-        // /tram/line/{lineId}/stop/{gtfsCode} -> return times for the stop
+        if (seg.length == 3 && "line".equals(seg[1])) return GSON.toJson(tramService.getStopsForLine(seg[2]));
         if (seg.length == 5 && "line".equals(seg[1]) && "stop".equals(seg[3])) return tramService.getStopTimes(seg[4]);
-        // /tram/codes -> list all known GTFS codes
-        if (seg.length == 2 && "codes".equals(seg[1])) {
-            return GSON.toJson(tramService.listAllGtfsCodes());
-        }
-        // /tram/check-missing/{network} -> list RT stop ids not found in static stops
-        if (seg.length == 3 && "check-missing".equals(seg[1])) {
-            String network = seg[2];
-            return GSON.toJson(tramService.findMissingStaticStopsInGtfsRt(network));
-        }
-        // /tram/raw-stops -> raw cached JSON for all stops (if present)
-        if (seg.length == 2 && "raw-stops".equals(seg[1])) {
-            return tramService.getStopsJsonRaw();
-        }
+        if (seg.length == 2 && "codes".equals(seg[1])) return GSON.toJson(tramService.listAllGtfsCodes());
+        if (seg.length == 3 && "check-missing".equals(seg[1])) return GSON.toJson(tramService.findMissingStaticStopsInGtfsRt(seg[2]));
+        if (seg.length == 2 && "raw-stops".equals(seg[1])) return "";
         return null;
     }
 
@@ -161,9 +117,5 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
     }
 
     private record HttpResult(HttpResponseStatus status, String content) {}
-
-    private static class OtpCreateRequest {
-        String type;
-        String payload;
-    }
+    private static class OtpCreateRequest { String type; String payload; }
 }
