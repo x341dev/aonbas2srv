@@ -40,6 +40,7 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.mockito:mockito-core:5.+")
 
     implementation("io.netty:netty-all:4.2.7.Final")
     implementation("com.google.inject:guice:7.0.0")
