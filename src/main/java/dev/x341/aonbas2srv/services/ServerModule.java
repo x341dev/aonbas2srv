@@ -17,8 +17,6 @@ public class ServerModule extends AbstractModule {
 
         bind(MetroService.class).in(Singleton.class);
 
-        bind(OtpService.class).in(Singleton.class);
-
         bind(TramService.class).in(Singleton.class);
 
         bind(HttpServerHandler.class);
