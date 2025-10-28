@@ -1,5 +1,6 @@
 package dev.x341.aonbas2srv.services;
 
+import com.google.transit.realtime.GtfsRealtime;
 import dev.x341.aonbas2srv.util.AOBLogger;
 
 import java.util.LinkedHashMap;
@@ -16,6 +17,8 @@ public class CacheService {
     private static final String TRAM_TOKEN_KEY = "tram_access_token";
 
     private final Map<String, String> apiCache;
+
+    private final Map<String, GtfsCacheEntry> gtfsCache;
 
     /**
      * Create a CacheService instance with a bounded LinkedHashMap that evicts oldest entries when
@@ -39,6 +42,7 @@ public class CacheService {
                 return remove;
             }
         };
+        this.gtfsCache = new LinkedHashMap<>();
         AOBLogger.log("Cache initialized with " + MAX_API_CALLS + " capacity.");
     }
 
@@ -108,4 +112,47 @@ public class CacheService {
     }
 
 
+    private static class GtfsCacheEntry {
+        final GtfsRealtime.FeedMessage feed;
+        final long expiresAt;
+
+        GtfsCacheEntry(GtfsRealtime.FeedMessage feed, int ttlSecconds) {
+            this.feed = feed;
+            this.expiresAt = System.currentTimeMillis()/1000 + ttlSecconds;
+        }
+
+        boolean expired() {
+            return System.currentTimeMillis()/1000 >= expiresAt;
+        }
+    }
+
+    /**
+     * Get a GTFS-RT feed from cache if present and not expired.
+     * @param cacheKey network or identifier
+     * @return feed or null if not cached/expired
+     */
+    public GtfsRealtime.FeedMessage getGtfsRt(String cacheKey) {
+        GtfsCacheEntry entry = gtfsCache.get(cacheKey);
+        if (entry != null) {
+            if (!entry.expired()) {
+                AOBLogger.log("GTFS-RT cache hit for " + cacheKey);
+                return entry.feed;
+            } else {
+                gtfsCache.remove(cacheKey);
+                AOBLogger.log("GTFS-RT cache expired for " + cacheKey);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Put a GTFS-RT feed into cache with TTL.
+     * @param cacheKey network or identifier
+     * @param feed feed to store
+     * @param ttlSeconds seconds until expiration
+     */
+    public void putGtfsRt(String cacheKey, GtfsRealtime.FeedMessage feed, int ttlSeconds) {
+        gtfsCache.put(cacheKey, new GtfsCacheEntry(feed, ttlSeconds));
+        AOBLogger.log("GTFS-RT cached for " + cacheKey + "with TTL " + ttlSeconds + "s");
+    }
 }

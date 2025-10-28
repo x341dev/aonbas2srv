@@ -51,6 +51,8 @@ dependencies {
     implementation("com.google.code.gson:gson:2.13.2")
     implementation("io.github.cdimascio:dotenv-java:3.2.0")
 
+    implementation("org.mobilitydata:gtfs-realtime-bindings:0.0.8")
+
     implementation("io.swagger.core.v3:swagger-annotations:2.2.20")
     implementation("io.swagger.core.v3:swagger-models:2.2.20")
     implementation("io.swagger.core.v3:swagger-jaxrs2:2.2.20")
