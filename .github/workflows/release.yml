@@ -5,11 +5,6 @@ on:
     branches:
       - main
 
-env:
-  JAVA_VERSION: '21'
-  GRADLE_BUILD_TASK: 'jar'
-  CONSTANTS_PATH: 'src/main/java/dev/x341/aonbas2srv/util/AOBConstants.java'
-
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
@@ -17,10 +12,16 @@ jobs:
       contents: write
 
     steps:
+      # Paso 1: Checkout del repositorio
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Validate Conventional Commits
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: commitlint.config.js
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
@@ -52,6 +53,14 @@ jobs:
           echo "VERSION_TAG_FULL=$VERSION_TAG_FULL" >> $GITHUB_OUTPUT
           echo "VERSION_TAG_SHORT=$VERSION_TAG_SHORT" >> $GITHUB_OUTPUT
 
+      - name: Generate changelog
+        id: changelog
+        uses: TriPSs/conventional-changelog-action@v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          from-tag: ${{ steps.release_type.outputs.PREV_TAG }}
+          to-tag: ${{ steps.release_type.outputs.TAG }}
+
       - name: Determine release type and compute tags
         id: release_type
         run: |
@@ -77,14 +86,11 @@ jobs:
             fi
           fi
 
-          # Compute normalized tag (short) and previous normalized tag for major/minor releases
           TAG_SHORT="v${CUR_MAJOR}.${CUR_MINOR}"
           TAG_FULL="v${CURRENT_VERSION}"
 
           if [ "$RELEASE_TYPE" = "major" ] || [ "$RELEASE_TYPE" = "minor" ]; then
-            # For release tags use the normalized short tag (vMAJOR.MINOR)
             TAG="$TAG_SHORT"
-
             if [ "$CUR_MINOR" -gt 0 ]; then
               PREV_TAG_NORMALIZED="v${CUR_MAJOR}.$((CUR_MINOR - 1))"
             else
@@ -94,11 +100,8 @@ jobs:
                 PREV_TAG_NORMALIZED=""
               fi
             fi
-
-            # Use the normalized previous tag as PREV_TAG (even if a patch tag existed previously).
             PREV_TAG="$PREV_TAG_NORMALIZED"
           else
-            # For patch releases we keep the full version tag and use git to get the previous available tag
             TAG="$TAG_FULL"
             PREV_TAG="$PREV_TAG_GIT"
           fi
@@ -120,7 +123,7 @@ jobs:
         with:
           tag_name: ${{ steps.release_type.outputs.TAG }}
           name: Release ${{ steps.release_type.outputs.TAG }}
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.clean_changelog }}
           files: ${{ steps.jar.outputs.JAR_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
