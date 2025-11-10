@@ -24,6 +24,8 @@ public class TmbApiClient {
     private static final String KEY_INTERCHANGES_PREFIX = "tmb:interchanges:";
     private static final String KEY_TRAINS_PREFIX = "tmb:trains:";
 
+    private static final int TRAIN_DATA_TTL_SECONDS = 10;
+
     @Inject
     public TmbApiClient(AOBConfig config, CacheService cacheService) {
         this.client = new OkHttpClient();
@@ -83,7 +85,7 @@ public class TmbApiClient {
         if (cached != null) return cached;
         String url = String.format("%s/itransit/metro/estacions?estacions=%s&%s", BASE_URL, stationCode, authParams);
         String result = executeGetUrl(url);
-        if (result != null) cacheService.put(key, result);
+        if (result != null) cacheService.put(key, result, TRAIN_DATA_TTL_SECONDS);
         return result;
     }
 
