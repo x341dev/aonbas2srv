@@ -78,12 +78,23 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
 
     private String handleMetroRoutes(FullHttpRequest req, String[] seg, boolean isApp) throws IOException {
         if (seg.length == 3 && "line".equals(seg[1])) {
-            return isApp ? GSON.toJson(metroService.getStationForLineDto(seg[2]))
+            return isApp
+                    ? GSON.toJson(metroService.getStationForLineDto(seg[2]))
                     : metroService.getStationForLine(seg[2]);
+
         } else if (seg.length == 5 && "line".equals(seg[1]) && "station".equals(seg[3])) {
-            return metroService.getTrainTimes(seg[4]); // Train times igual para app o HTTP
+            if (isApp) {
+                return GSON.toJson(metroService.getTrainTimesDto(seg[4]));
+            } else {
+                return metroService.getTrainTimes(seg[4]);
+            }
+
         } else if (seg.length == 6 && "line".equals(seg[1]) && "station".equals(seg[3]) && "corresp".equals(seg[5])) {
-            return metroService.getInterchanges(seg[2], seg[4]);
+            if (isApp) {
+                return GSON.toJson(metroService.getInterchangesDto(seg[2], seg[4]));
+            } else {
+                return metroService.getInterchanges(seg[2], seg[4]);
+            }
         }
         return null;
     }
