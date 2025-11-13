@@ -5,16 +5,13 @@ on:
     branches:
       - main
 
-env:
-  JAVA_VERSION: '21'
-  GRADLE_BUILD_TASK: 'jar'
-  CONSTANTS_PATH: 'src/main/java/dev/x341/aonbas2srv/util/AOBConstants.java'
-
 jobs:
-  build_and_release:
+  build-and-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -22,105 +19,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK ${{ env.JAVA_VERSION }}
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: 21
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build with Gradle
-        run: ./gradlew ${{ env.GRADLE_BUILD_TASK }} -x test
-
-      - name: Extract version from AOBConstants.java
-        id: version
-        run: |
-          CONST_FILE="${{ env.CONSTANTS_PATH }}"
-          MAJOR=$(grep "VERSION_MAJOR" "$CONST_FILE" | grep -oE '[0-9]+')
-          MINOR=$(grep "VERSION_MINOR" "$CONST_FILE" | grep -oE '[0-9]+')
-          BUILD=$(grep "VERSION_BUILD" "$CONST_FILE" | grep -oE '[0-9]+')
-          FULL_VERSION="$MAJOR.$MINOR.$BUILD"
-          SHORT_VERSION="$MAJOR.$MINOR"
-          VERSION_TAG_FULL="v$FULL_VERSION"
-          VERSION_TAG_SHORT="v$SHORT_VERSION"
-
-          echo "VERSION=$FULL_VERSION" >> $GITHUB_OUTPUT
-          echo "VERSION_SHORT=$SHORT_VERSION" >> $GITHUB_OUTPUT
-          echo "VERSION_TAG_FULL=$VERSION_TAG_FULL" >> $GITHUB_OUTPUT
-          echo "VERSION_TAG_SHORT=$VERSION_TAG_SHORT" >> $GITHUB_OUTPUT
-
-      - name: Determine release type and compute tags
-        id: release_type
-        run: |
-          PREV_TAG=""
-          PREV_TAG_NORMALIZED=""
-
-          PREV_TAG_GIT=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          CURRENT_VERSION="${{ steps.version.outputs.VERSION }}"
-          IFS='.' read -r CUR_MAJOR CUR_MINOR CUR_PATCH <<< "$CURRENT_VERSION"
-
-          if [ -z "$PREV_TAG_GIT" ]; then
-            RELEASE_TYPE="major"
-          else
-            PREV_VERSION="${PREV_TAG_GIT#v}"
-            IFS='.' read -r PREV_MAJOR PREV_MINOR PREV_PATCH <<< "$PREV_VERSION"
-
-            if [ "$CUR_MAJOR" -gt "$PREV_MAJOR" ]; then
-              RELEASE_TYPE="major"
-            elif [ "$CUR_MINOR" -gt "$PREV_MINOR" ]; then
-              RELEASE_TYPE="minor"
-            else
-              RELEASE_TYPE="patch"
-            fi
-          fi
-
-          # Compute normalized tag (short) and previous normalized tag for major/minor releases
-          TAG_SHORT="v${CUR_MAJOR}.${CUR_MINOR}"
-          TAG_FULL="v${CURRENT_VERSION}"
-
-          if [ "$RELEASE_TYPE" = "major" ] || [ "$RELEASE_TYPE" = "minor" ]; then
-            # For release tags use the normalized short tag (vMAJOR.MINOR)
-            TAG="$TAG_SHORT"
-
-            if [ "$CUR_MINOR" -gt 0 ]; then
-              PREV_TAG_NORMALIZED="v${CUR_MAJOR}.$((CUR_MINOR - 1))"
-            else
-              if [ "$CUR_MAJOR" -gt 0 ]; then
-                PREV_TAG_NORMALIZED="v$((CUR_MAJOR - 1)).0"
-              else
-                PREV_TAG_NORMALIZED=""
-              fi
-            fi
-
-            # Use the normalized previous tag as PREV_TAG (even if a patch tag existed previously).
-            PREV_TAG="$PREV_TAG_NORMALIZED"
-          else
-            # For patch releases we keep the full version tag and use git to get the previous available tag
-            TAG="$TAG_FULL"
-            PREV_TAG="$PREV_TAG_GIT"
-          fi
-
-          echo "Detected release type: $RELEASE_TYPE"
-          echo "RELEASE_TYPE=$RELEASE_TYPE" >> $GITHUB_OUTPUT
-          echo "TAG=$TAG" >> $GITHUB_OUTPUT
-          echo "PREV_TAG=$PREV_TAG" >> $GITHUB_OUTPUT
-
-      - name: Find JAR
-        id: jar
-        run: |
-          JAR_PATH=$(find build/libs/ -name "*.jar" -type f | head -n 1)
-          echo "JAR_PATH=$JAR_PATH" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        if: ${{ steps.release_type.outputs.RELEASE_TYPE == 'major' || steps.release_type.outputs.RELEASE_TYPE == 'minor' }}
-        uses: softprops/action-gh-release@v2
+      - name: Set up Node (for semantic-release)
+        uses: actions/setup-node@v4
         with:
-          tag_name: ${{ steps.release_type.outputs.TAG }}
-          name: Release ${{ steps.release_type.outputs.TAG }}
-          generate_release_notes: true
-          files: ${{ steps.jar.outputs.JAR_PATH }}
+          node-version: 22
+
+      - name: Install dependencies for semantic-release
+        run: bun install --frozen-lockfile
+
+      - name: Build JAR
+        run: ./gradlew jar -x test
+
+      - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
