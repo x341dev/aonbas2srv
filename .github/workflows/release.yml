@@ -32,7 +32,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies for semantic-release
-        run: bun install --frozen-lockfile
+        run: npm install --frozen-lockfile
 
       - name: Build JAR
         run: ./gradlew jar -x test
